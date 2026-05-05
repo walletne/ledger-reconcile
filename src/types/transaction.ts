@@ -1,47 +1,54 @@
-/**
- * Core transaction types for ledger reconciliation.
- */
+export type TransactionStatus = 'pending' | 'settled' | 'failed' | 'reversed';
 
-export type TransactionStatus = 'pending' | 'settled' | 'failed' | 'refunded';
+export type TransactionType = 'debit' | 'credit';
 
 export interface Transaction {
-  /** Unique identifier within the source system */
+  /** Unique identifier for this transaction */
   id: string;
-  /** ISO 8601 timestamp of when the transaction occurred */
-  timestamp: string;
-  /** Amount in the smallest currency unit (e.g. cents) */
+  /** Transaction amount in minor units or decimal, consistent per provider */
   amount: number;
   /** ISO 4217 currency code */
   currency: string;
-  /** Human-readable description or reference */
+  /** ISO 8601 date string */
+  date: string;
+  /** Optional external reference or idempotency key */
+  reference?: string;
+  /** Human-readable description */
   description?: string;
   /** Current status of the transaction */
   status: TransactionStatus;
-  /** Arbitrary metadata from the source system */
+  /** Whether this is a debit or credit */
+  type?: TransactionType;
+  /** Provider-specific metadata */
   metadata?: Record<string, unknown>;
 }
 
-export interface ProviderTransaction extends Transaction {
-  /** Identifier assigned by the external payment provider */
-  providerRef: string;
+export interface NormalizedTransaction extends Transaction {
+  /** Source system that originated this transaction */
+  source: string;
+  /** Timestamp when this record was ingested */
+  ingestedAt: string;
 }
 
-export interface InternalTransaction extends Transaction {
-  /** Identifier stored in the internal database */
-  internalRef: string;
+export function isSettled(transaction: Transaction): boolean {
+  return transaction.status === 'settled';
 }
 
-export type ReconciliationMatchType =
-  | 'matched'
-  | 'missing_in_provider'
-  | 'missing_in_internal'
-  | 'amount_mismatch'
-  | 'status_mismatch';
+export function isPending(transaction: Transaction): boolean {
+  return transaction.status === 'pending';
+}
 
-export interface ReconciliationResult {
-  matchType: ReconciliationMatchType;
-  providerTransaction?: ProviderTransaction;
-  internalTransaction?: InternalTransaction;
-  /** Human-readable explanation of the discrepancy, if any */
-  discrepancy?: string;
+export function isFailed(transaction: Transaction): boolean {
+  return transaction.status === 'failed';
+}
+
+export function normalizeTransaction(
+  transaction: Transaction,
+  source: string
+): NormalizedTransaction {
+  return {
+    ...transaction,
+    source,
+    ingestedAt: new Date().toISOString(),
+  };
 }
