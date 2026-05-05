@@ -1,0 +1,10 @@
+node_modules/
+coverage/
+.DS_Store
+*.tsbuildinfo
+.next/
+*.js.map
+npm-debug.log*
+.env.local
+*.log
+.env
