@@ -20,6 +20,12 @@ describe('filterByStatus', () => {
     expect(result.every((t) => t.status === 'settled')).toBe(true);
   });
 
+  it('returns only pending transactions', () => {
+    const result = filterByStatus(mockTransactions, 'pending');
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('tx2');
+  });
+
   it('returns all transactions when status is undefined', () => {
     const result = filterByStatus(mockTransactions, undefined);
     expect(result).toHaveLength(4);
@@ -41,6 +47,11 @@ describe('filterByAmountRange', () => {
   it('filters by both min and max', () => {
     const result = filterByAmountRange(mockTransactions, 100, 300);
     expect(result).toHaveLength(2);
+  });
+
+  it('returns empty array when no transactions fall within range', () => {
+    const result = filterByAmountRange(mockTransactions, 500, 1000);
+    expect(result).toHaveLength(0);
   });
 });
 
