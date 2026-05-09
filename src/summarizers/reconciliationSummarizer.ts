@@ -1,23 +1,20 @@
 import { ReconciliationResult } from '../reconciler/reconciler';
+import { groupByStatus } from '../groupers/transactionGrouper';
 
 export interface ReconciliationSummary {
-  totalSourceTransactions: number;
-  totalTargetTransactions: number;
-  matchedCount: number;
-  unmatchedSourceCount: number;
-  unmatchedTargetCount: number;
-  discrepancyCount: number;
+  totalSource: number;
+  totalTarget: number;
+  matched: number;
   matchRate: number;
+  discrepancies: number;
   totalDiscrepancyAmount: number;
-  generatedAt: string;
+  sourceByStatus: Record<string, number>;
+  targetByStatus: Record<string, number>;
 }
 
-export function computeMatchRate(
-  matched: number,
-  total: number
-): number {
+export function computeMatchRate(matched: number, total: number): number {
   if (total === 0) return 0;
-  return Math.round((matched / total) * 10000) / 100;
+  return parseFloat(((matched / total) * 100).toFixed(2));
 }
 
 export function computeTotalDiscrepancyAmount(
@@ -32,24 +29,23 @@ export function computeTotalDiscrepancyAmount(
 export function summarizeReconciliation(
   result: ReconciliationResult
 ): ReconciliationSummary {
-  const matchedCount = result.matched.length;
-  const unmatchedSourceCount = result.unmatchedSource.length;
-  const unmatchedTargetCount = result.unmatchedTarget.length;
-  const discrepancyCount = result.discrepancies.length;
-  const totalSourceTransactions = matchedCount + unmatchedSourceCount + discrepancyCount;
-  const totalTargetTransactions = matchedCount + unmatchedTargetCount + discrepancyCount;
-  const matchRate = computeMatchRate(matchedCount, totalSourceTransactions);
-  const totalDiscrepancyAmount = computeTotalDiscrepancyAmount(result);
+  const matched = result.matched.length;
+  const total = Math.max(result.sourceTransactions.length, result.targetTransactions.length);
+
+  const sourceGroups = groupByStatus(result.sourceTransactions);
+  const targetGroups = groupByStatus(result.targetTransactions);
+
+  const countGroups = (groups: Record<string, unknown[]>) =>
+    Object.fromEntries(Object.entries(groups).map(([k, v]) => [k, v.length]));
 
   return {
-    totalSourceTransactions,
-    totalTargetTransactions,
-    matchedCount,
-    unmatchedSourceCount,
-    unmatchedTargetCount,
-    discrepancyCount,
-    matchRate,
-    totalDiscrepancyAmount,
-    generatedAt: new Date().toISOString(),
+    totalSource: result.sourceTransactions.length,
+    totalTarget: result.targetTransactions.length,
+    matched,
+    matchRate: computeMatchRate(matched, total),
+    discrepancies: result.discrepancies.length,
+    totalDiscrepancyAmount: computeTotalDiscrepancyAmount(result),
+    sourceByStatus: countGroups(sourceGroups),
+    targetByStatus: countGroups(targetGroups),
   };
 }
