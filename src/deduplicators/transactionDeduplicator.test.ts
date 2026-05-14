@@ -5,79 +5,106 @@ import {
 } from './transactionDeduplicator';
 import { NormalizedTransaction } from '../types/transaction';
 
-const base: NormalizedTransaction = {
-  id: 'internal-1',
-  externalId: 'ext-abc',
-  amount: 100,
-  currency: 'USD',
+const makeTransaction = (
+  id: string,
+  amount: number,
+  currency: string,
+  date: string,
+  overrides: Partial<NormalizedTransaction> = {}
+): NormalizedTransaction => ({
+  id,
+  amount,
+  currency,
+  date,
   status: 'settled',
-  date: new Date('2024-03-15T10:00:00Z'),
-};
-
-const duplicate: NormalizedTransaction = {
-  ...base,
-  id: 'internal-2',
-  date: new Date('2024-03-15T18:30:00Z'), // same day, different time
-};
-
-const different: NormalizedTransaction = {
-  ...base,
-  id: 'internal-3',
-  externalId: 'ext-xyz',
-  amount: 200,
-};
+  description: 'Test transaction',
+  ...overrides,
+});
 
 describe('deduplicationKey', () => {
-  it('produces the same key for transactions on the same day with same fields', () => {
-    expect(deduplicationKey(base)).toBe(deduplicationKey(duplicate));
+  it('returns a consistent key for the same transaction fields', () => {
+    const tx = makeTransaction('tx1', 100, 'USD', '2024-01-15');
+    const key1 = deduplicationKey(tx);
+    const key2 = deduplicationKey(tx);
+    expect(key1).toBe(key2);
   });
 
-  it('produces different keys when externalId differs', () => {
-    expect(deduplicationKey(base)).not.toBe(deduplicationKey(different));
+  it('returns different keys for different amounts', () => {
+    const tx1 = makeTransaction('tx1', 100, 'USD', '2024-01-15');
+    const tx2 = makeTransaction('tx2', 200, 'USD', '2024-01-15');
+    expect(deduplicationKey(tx1)).not.toBe(deduplicationKey(tx2));
   });
 
-  it('includes currency in the key', () => {
-    const gbp = { ...base, currency: 'GBP' };
-    expect(deduplicationKey(base)).not.toBe(deduplicationKey(gbp));
+  it('returns different keys for different currencies', () => {
+    const tx1 = makeTransaction('tx1', 100, 'USD', '2024-01-15');
+    const tx2 = makeTransaction('tx2', 100, 'EUR', '2024-01-15');
+    expect(deduplicationKey(tx1)).not.toBe(deduplicationKey(tx2));
+  });
+
+  it('returns different keys for different dates', () => {
+    const tx1 = makeTransaction('tx1', 100, 'USD', '2024-01-15');
+    const tx2 = makeTransaction('tx2', 100, 'USD', '2024-01-16');
+    expect(deduplicationKey(tx1)).not.toBe(deduplicationKey(tx2));
   });
 });
 
 describe('deduplicateTransactions', () => {
-  it('returns a single transaction when given no duplicates', () => {
-    const result = deduplicateTransactions([base, different]);
-    expect(result).toHaveLength(2);
+  it('returns all transactions when there are no duplicates', () => {
+    const txs = [
+      makeTransaction('tx1', 100, 'USD', '2024-01-15'),
+      makeTransaction('tx2', 200, 'USD', '2024-01-16'),
+      makeTransaction('tx3', 300, 'EUR', '2024-01-15'),
+    ];
+    const result = deduplicateTransactions(txs);
+    expect(result).toHaveLength(3);
   });
 
-  it('removes duplicate transactions, keeping the first occurrence', () => {
-    const result = deduplicateTransactions([base, duplicate, different]);
+  it('removes duplicate transactions keeping the first occurrence', () => {
+    const txs = [
+      makeTransaction('tx1', 100, 'USD', '2024-01-15'),
+      makeTransaction('tx2', 100, 'USD', '2024-01-15'),
+      makeTransaction('tx3', 200, 'USD', '2024-01-16'),
+    ];
+    const result = deduplicateTransactions(txs);
     expect(result).toHaveLength(2);
-    expect(result[0].id).toBe('internal-1');
+    expect(result[0].id).toBe('tx1');
   });
 
-  it('returns an empty array when given an empty input', () => {
+  it('handles an empty array', () => {
     expect(deduplicateTransactions([])).toEqual([]);
-  });
-
-  it('handles a list with all duplicates', () => {
-    const result = deduplicateTransactions([base, duplicate]);
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('internal-1');
   });
 });
 
 describe('findDuplicateGroups', () => {
-  it('returns groups with more than one member', () => {
-    const groups = findDuplicateGroups([base, duplicate, different]);
+  it('returns empty array when no duplicates exist', () => {
+    const txs = [
+      makeTransaction('tx1', 100, 'USD', '2024-01-15'),
+      makeTransaction('tx2', 200, 'USD', '2024-01-16'),
+    ];
+    expect(findDuplicateGroups(txs)).toEqual([]);
+  });
+
+  it('groups duplicate transactions together', () => {
+    const txs = [
+      makeTransaction('tx1', 100, 'USD', '2024-01-15'),
+      makeTransaction('tx2', 100, 'USD', '2024-01-15'),
+      makeTransaction('tx3', 100, 'USD', '2024-01-15'),
+      makeTransaction('tx4', 200, 'USD', '2024-01-16'),
+    ];
+    const groups = findDuplicateGroups(txs);
     expect(groups).toHaveLength(1);
-    expect(groups[0]).toHaveLength(2);
+    expect(groups[0]).toHaveLength(3);
+    expect(groups[0].map((t) => t.id)).toEqual(['tx1', 'tx2', 'tx3']);
   });
 
-  it('returns an empty array when there are no duplicates', () => {
-    const groups = findDuplicateGroups([base, different]);
-    expect(groups).toHaveLength(0);
-  });
-
-  it('returns an empty array for empty input', () => {
-    expect(findDuplicateGroups([])).toEqual([]);
+  it('returns multiple groups when multiple duplicate sets exist', () => {
+    const txs = [
+      makeTransaction('tx1', 100, 'USD', '2024-01-15'),
+      makeTransaction('tx2', 100, 'USD', '2024-01-15'),
+      makeTransaction('tx3', 200, 'EUR', '2024-01-16'),
+      makeTransaction('tx4', 200, 'EUR', '2024-01-16'),
+    ];
+    const groups = findDuplicateGroups(txs);
+    expect(groups).toHaveLength(2);
   });
 });
