@@ -32,8 +32,12 @@ Applies all provided filter options in a single pass.
 | `endDate`   | `Date`                            | Latest transaction date (inclusive)  |
 | `provider`  | `string`                          | Payment provider name                |
 
+> **Note:** If both `minAmount` and `maxAmount` are provided, `minAmount` must be less than or equal to `maxAmount`, otherwise an error is thrown. Similarly, `startDate` must not be after `endDate`.
+
 ### Individual Helpers
 
 - `filterByStatus(transactions, status)` — filter by status only
 - `filterByAmountRange(transactions, min?, max?)` — filter by amount bounds
 - `filterByDateRange(transactions, startDate?, endDate?)` — filter by date range
+- `filterByCurrency(transactions, currency)` — filter by ISO 4217 currency code
+- `filterByProvider(transactions, provider)` — filter by payment provider name
