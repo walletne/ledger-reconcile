@@ -42,6 +42,18 @@ export function isFailed(transaction: Transaction): boolean {
   return transaction.status === 'failed';
 }
 
+export function isReversed(transaction: Transaction): boolean {
+  return transaction.status === 'reversed';
+}
+
+/**
+ * Returns true if the transaction is in a terminal state (no further
+ * status transitions are expected).
+ */
+export function isTerminal(transaction: Transaction): boolean {
+  return isSettled(transaction) || isFailed(transaction) || isReversed(transaction);
+}
+
 export function normalizeTransaction(
   transaction: Transaction,
   source: string
