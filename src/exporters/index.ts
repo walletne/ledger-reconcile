@@ -1,3 +1,7 @@
+/**
+ * Exporters module for ledger reconciliation.
+ * Provides utilities to export reconciliation results in various formats.
+ */
 export {
   exportReconciliation,
   serializeResult,
