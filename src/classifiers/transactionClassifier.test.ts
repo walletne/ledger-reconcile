@@ -97,11 +97,26 @@ describe('filterByCategory', () => {
 describe('filterByRisk', () => {
   it('returns only transactions matching the given risk level', () => {
     const classified = classifyTransactions([
-      makeTransaction({ amount: 5, status: 'settled' }),
-      makeTransaction({ amount: 5000, status: 'failed' }),
+      makeTransaction({ amount: 25, status: 'settled' }),
+      makeTransaction({ amount: 2000, status: 'settled' }),
+      makeTransaction({ amount: 500, status: 'failed' }),
     ]);
-    const highRisk = filterByRisk(classified, 'high');
-    expect(highRisk).toHaveLength(1);
-    expect(highRisk[0].status).toBe('failed');
+    expect(filterByRisk(classified, 'low')).toHaveLength(1);
+    expect(filterByRisk(classified, 'low')[0].amount).toBe(25);
+  });
+
+  it('returns multiple transactions with the same risk level', () => {
+    const classified = classifyTransactions([
+      makeTransaction({ amount: 2000, status: 'settled' }),
+      makeTransaction({ amount: 500, status: 'pending' }),
+    ]);
+    expect(filterByRisk(classified, 'medium')).toHaveLength(2);
+  });
+
+  it('returns an empty array when no transactions match the risk level', () => {
+    const classified = classifyTransactions([
+      makeTransaction({ amount: 25, status: 'settled' }),
+    ]);
+    expect(filterByRisk(classified, 'high')).toHaveLength(0);
   });
 });
